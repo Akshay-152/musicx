@@ -18,6 +18,13 @@ Fast • Beautiful • Lightweight • Designed for Music Lovers
 
 ---
 
+## 🚀 Live Preview
+
+> **Web Preview:** https://musicx-play.blogspot.com/
+
+**Note:** The web version is a preview of the MusicX interface and core experience. The complete Android application includes many additional screens, features, and capabilities that are not available in the web preview.
+
+
 ## 📖 About
 
 MUSIX is a modern Android music player built for users who want a clean, beautiful, and distraction-free listening experience. The application automatically scans local music files, organizes them into a powerful library, provides playlist management, favorites, downloads support, and delivers an immersive music playback experience.
