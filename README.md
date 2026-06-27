@@ -6,6 +6,12 @@ This is the **MusicX** web application – a modern, feature‑rich music player
 
 ---
 
+## 🚀 Live Demo
+
+**Try it here:** https://musicx-play.blogspot.com/
+
+---
+
 ## Security‑Sensitive Configuration
 
 The application requires a few secret values to operate:
