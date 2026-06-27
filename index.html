@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#1a1a24">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <title>MUSIX — Pro Player | Duration + Download + Speed</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
+                "firebase/auth": "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js",
+                "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js"
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --app-bg: #1a1a24;
+            --accent: #d4af37;
+            --accent-glow: rgba(212, 175, 55, 0.4);
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.08);
+        }
+
+        * {
+            transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: radial-gradient(circle at 20% 30%, #0a0a0f, #000000);
+            color: #ffffff;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .device-container {
+            width: 390px;
+            height: 844px;
+            background: linear-gradient(180deg, #2a2a35 0%, #121216 100%);
+            border-radius: 40px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 0 0 12px #1e1e24, 0 30px 60px rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+        }
+
+
+        #bgGradientContainer {
+            transition: opacity 1s ease;
+        }
+
+        .dynamic-bg {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 30% 40%, rgba(212, 175, 55, 0.08) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .view-layer {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s ease;
+            z-index: 2;
+        }
+
+        .view-hidden-right {
+            transform: translateX(100%);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .view-hidden-bottom {
+            transform: translateY(100%);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .view-active {
+            transform: translate(0, 0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #view-player {
+            background: rgba(18, 18, 24, 0.7);
+            backdrop-filter: blur(25px);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .scroll-area {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 100px;
+            scroll-behavior: smooth;
+        }
+
+        .scroll-area::-webkit-scrollbar {
+            display: none;
+        }
+
+        .player-ring-wrapper {
+            position: relative;
+            width: 260px;
+            height: 260px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .progress-ring-circle {
+            transition: stroke-dashoffset 0.05s linear;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        .knob-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transform: rotate(0deg);
+            pointer-events: auto;
+            cursor: grab;
+            z-index: 30;
+        }
+
+        .knob {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 14px;
+            height: 14px;
+            background: var(--accent);
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.8);
+        }
+
+        .album-art-circle {
+            position: absolute;
+            width: 190px;
+            height: 190px;
+            border-radius: 50%;
+            object-fit: cover;
+            z-index: 10;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            animation: spinArt 20s linear infinite;
+            animation-play-state: paused;
+        }
+
+        @keyframes spinArt {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+        }
+
+        .glass-btn {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .glass-btn:active {
+            transform: scale(0.96);
+        }
+
+        .mini-player {
+            position: absolute;
+            bottom: 30px;
+            left: 20px;
+            right: 20px;
+            background: rgba(20, 20, 25, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 50;
+            transform: translateY(150%);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .mini-player.show {
+            transform: translateY(0);
+        }
+
+        #toast-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            z-index: 9999;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .toast {
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(16px);
+            padding: 10px 20px;
+            border-radius: 40px;
+            font-size: 13px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateY(-20px) scale(0.9);
+            opacity: 0;
+            transition: all 0.2s cubic-bezier(0.34, 1.2, 0.64, 1);
+            color: white;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            max-width: 90%;
+            white-space: nowrap;
+        }
+
+        .toast.visible {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+
+        .modal-bg {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(12px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: 0.25s ease;
+        }
+
+        .modal-bg.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        @media (min-width: 1024px) {
+            body {
+                padding: 2rem;
+            }
+
+            .device-container {
+                width: 1280px;
+                max-width: 90vw;
+                height: 820px;
+                border-radius: 48px;
+            }
+
+            #tracksList {
+                display: grid !important;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 16px;
+            }
+
+            .player-ring-wrapper {
+                transform: scale(1.28);
+                margin: 1.2rem auto 2rem auto;
+            }
+
+            .mini-player {
+                width: 380px;
+                left: auto;
+                right: 28px;
+                bottom: 38px;
+                border-radius: 60px;
+            }
+        }
+
+        @media (min-width: 1600px) {
+            #tracksList {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .menu-panel {
+            position: absolute;
+            top: 70px;
+            right: 20px;
+            width: 260px;
+            background: rgba(10, 10, 15, 0.98);
+            backdrop-filter: blur(20px);
+            border-radius: 28px;
+            padding: 12px;
+            z-index: 200;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            animation: menuSlideIn 0.2s ease;
+        }
+
+        .menu-panel.hidden {
+            display: none;
+        }
+
+        @keyframes menuSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            color: #eee;
+        }
+
+        .menu-item:hover {
+            background: rgba(212, 175, 55, 0.2);
+            color: #d4af37;
+        }
+
+        .volume-slider-container,
+        .speed-slider-container {
+            position: absolute;
+            bottom: 100px;
+            right: 30px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 10px 18px;
+            border-radius: 40px;
+            backdrop-filter: blur(12px);
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            z-index: 60;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            opacity: 0;
+            transform: translateY(10px);
+            pointer-events: none;
+        }
+
+        .speed-slider-container {
+            bottom: 170px;
+        }
+
+        .visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        input[type="range"] {
+            width: 100px;
+            background: #333;
+            height: 3px;
+            border-radius: 3px;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+
+        .repeat-active {
+            color: #d4af37 !important;
+        }
+
+        .track-card {
+            transition: transform 0.2s;
+        }
+
+        .track-card:active {
+            transform: scale(0.98);
+        }
+
+        .wave-animation {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            height: 20px;
+        }
+
+        .wave-animation span {
+            width: 3px;
+            height: 100%;
+            background: var(--accent);
+            border-radius: 2px;
+            animation: wave 0.8s infinite ease alternate;
+        }
+
+        @keyframes wave {
+            0% {
+                height: 4px;
+            }
+
+            100% {
+                height: 16px;
+            }
+        }
+
+        .avatar-preview {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .search-input {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 40px;
+            padding: 8px 16px;
+            font-size: 13px;
+            width: 100%;
+            color: white;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .speed-badge {
+            font-size: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 2px 6px;
+            border-radius: 20px;
+            margin-left: 6px;
+        }
+
+        .track-duration {
+            font-size: 9px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 2px 6px;
+            border-radius: 12px;
+            font-family: monospace;
+        }
+
+        .download-btn {
+            background: transparent;
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .download-btn:hover {
+            color: var(--accent);
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="device-container">
+        <div id="bgGradientContainer" class="absolute inset-0 z-0 overflow-hidden rounded-[inherit]"></div>
+        <div class="dynamic-bg" id="dynamicBg"></div>
+        <div id="toast-container"></div>
+
+        <!-- VIEW 1: HOME -->
+        <div id="view-home" class="view-layer view-active">
+            <header class="flex justify-between items-center p-6">
+                <div class="flex items-center gap-3">
+                    <div id="authTrigger"
+                        class="w-10 h-10 rounded-full bg-gray-800 border border-white/20 flex items-center justify-center overflow-hidden cursor-pointer shadow-lg relative">
+                        <img id="avatarImg" src="" class="avatar-preview hidden">
+                        <i id="avatarIcon" class="fas fa-user text-sm text-white"></i>
+                        <input type="file" id="avatarUpload" accept="image/*" class="hidden">
+                    </div>
+                    <div>
+                        <p class="text-[10px] text-gray-300 font-semibold tracking-wider">Creator Studio</p>
+                        <h2 id="userGreeting" class="text-sm font-bold truncate w-32"><button id="loginTrigger" class="bg-transparent text-white underline">Login</button></h2>
+                    </div>
+                </div>
+                <div class="relative flex items-center gap-2">
+                    <button id="menuToggleBtn"
+                        class="glass-btn px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2"><i
+                            class="fas fa-cog text-[#d4af37]"></i>Settings</button>
+                    <div id="libraryMenu" class="menu-panel hidden">
+                        <div class="menu-item" onclick="window.toggleUploadPanel()"><i
+                                class="fas fa-cloud-upload-alt"></i> Upload</div>
+                        <div class="menu-item" onclick="window.createPlaylistPrompt()"><i
+                                class="fas fa-plus-circle"></i> Create Playlist</div>
+                        <div class="menu-item" onclick="window.showFavoritesPlaylist()"><i
+                                class="fas fa-heart text-[#d4af37]"></i> Favorites</div>
+                        <div class="menu-item" onclick="window.showAllSongs()"><i class="fas fa-list-ul"></i> All Songs
+                        </div>
+                        <div class="menu-item" onclick="window.randomizeSongOrder()"><i class="fas fa-random"></i>
+                            Change Order</div>
+                        <div class="menu-item" onclick="window.togglePlaylistsView()"><i class="fas fa-folder"></i> My
+                            Playlists</div>
+                        <div class="menu-item" onclick="window.installAndroidApp()"><i class="fas fa-mobile-alt"></i>
+                            Install Android</div>
+                        <div class="menu-item" onclick="window.enableBackgroundAudio()"><i class="fas fa-bell"></i>
+                            Enable Background</div>
+                        <div class="menu-item" id="loginMenuItem" onclick="window.showLoginModal()"><i class="fas fa-user"></i> Login</div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="scroll-area px-6">
+                <div id="uploadPanel" class="glass-card p-5 mb-8 hidden">
+                    <h3 class="text-sm font-bold mb-3"><i class="fas fa-cloud-upload-alt mr-2 text-[#d4af37]"></i>🎵
+                        Upload Your Song</h3>
+                    <input type="text" id="upTitle" placeholder="Track Title"
+                        class="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-sm mb-3 outline-none focus:border-[#d4af37]">
+                    <input type="text" id="upArtist" placeholder="Author / Artist"
+                        class="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-sm mb-3 outline-none focus:border-[#d4af37]">
+                    <input type="url" id="upYoutubeUrl" placeholder="YouTube URL (optional)"
+                        class="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-sm mb-3 outline-none focus:border-[#d4af37]">
+                    <div class="flex gap-2 mb-4">
+                        <button onclick="document.getElementById('upAudio').click()"
+                            class="flex-1 glass-btn py-2 rounded-xl text-xs"><i class="fas fa-music mr-1"></i> <span
+                                id="upAudioLabel">Audio</span></button>
+                        <button onclick="document.getElementById('upCover').click()"
+                            class="flex-1 glass-btn py-2 rounded-xl text-xs"><i class="fas fa-image mr-1"></i> <span
+                                id="upCoverLabel">Cover</span></button>
+                    </div>
+                    <div id="filePreview" class="flex gap-2 text-[10px] text-gray-400 mb-3"></div>
+                    <input type="file" id="upAudio" accept="audio/*" class="hidden"><input type="file" id="upCover"
+                        accept="image/*" class="hidden">
+                    <button id="btnPublish"
+                        class="w-full bg-[#d4af37] text-black font-bold py-2.5 rounded-xl text-sm transition hover:bg-[#c4a030] active:scale-95">🚀
+                        Publish Track</button>
+                </div>
+
+                <div class="mb-5 relative">
+                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                    <input type="text" id="searchInput" placeholder="Search by title or artist..."
+                        class="search-input pl-10 pr-4 w-full">
+                </div>
+
+                <div class="flex justify-between items-end mb-4">
+                    <h2 class="text-lg font-bold" id="libraryTitle">Global Library</h2>
+                    <span id="trackCounter" class="text-xs text-gray-300 bg-white/10 px-2 py-1 rounded-full">0
+                        tracks</span>
+                </div>
+                <div id="tracksList" class="flex flex-col gap-3">
+                    <div class="text-center text-gray-400 py-10 text-sm"><i
+                            class="fas fa-spinner fa-spin mr-2"></i>Loading tracks...</div>
+                </div>
+                <div id="playlistsContainer" class="hidden mt-4"></div>
+            </div>
+        </div>
+
+        <!-- VIEW 2: FULL PLAYER (same as before) -->
+        <div id="view-player" class="view-layer view-hidden-bottom">
+            <header class="flex justify-between items-center px-6 pt-8 pb-4">
+                <button onclick="window.hidePlayer()" class="text-xl text-gray-300 hover:text-white"><i
+                        class="fas fa-chevron-down"></i></button>
+                <p class="text-[10px] font-bold tracking-widest uppercase">Now Playing</p>
+                <div class="wave-animation" id="waveAnim" style="display: none;"><span></span><span
+                        style="animation-delay:0.2s"></span><span style="animation-delay:0.4s"></span></div>
+            </header>
+            <div class="flex-1 flex flex-col items-center justify-center px-6 w-full relative -mt-4">
+                <div class="text-center w-full mb-6">
+                    <h1 id="pTitle" class="text-2xl font-bold truncate mb-1">Select a track</h1>
+                    <p id="pArtist" class="text-sm text-gray-300 truncate">Artist</p>
+                </div>
+                <div class="flex gap-2 text-[10px] text-gray-300 font-medium mb-6"><span
+                        id="pTimeCurrent">00:00</span><span>|</span><span id="pTimeTotal">00:00</span></div>
+                <div class="player-ring-wrapper">
+                    <svg width="260" height="260" class="absolute">
+                        <circle stroke="rgba(255,255,255,0.1)" stroke-width="3" fill="transparent" r="110" cx="130"
+                            cy="130" />
+                        <circle id="pProgressRing" stroke="var(--accent)" stroke-width="3" stroke-dasharray="691.15"
+                            stroke-dashoffset="691.15" fill="transparent" r="110" cx="130" cy="130"
+                            class="progress-ring-circle" stroke-linecap="round" />
+                    </svg>
+                    <div class="knob-container" id="pKnob">
+                        <div class="knob"></div>
+                    </div>
+                    <img id="pCover" src="" class="album-art-circle">
+                </div>
+                <div class="flex items-center justify-between w-full mt-12 px-2">
+                    <div></div>
+                    <div class="flex items-center gap-6">
+                        <button onclick="window.playPrev()" class="text-2xl hover:text-white"><i
+                                class="fas fa-step-backward"></i></button>
+                        <button onclick="window.togglePlayPause()"
+                            class="w-16 h-16 bg-white text-black rounded-full flex items-center justify-center text-2xl shadow-lg"><i
+                                id="pPlayIcon" class="fas fa-play ml-1"></i></button>
+                        <button onclick="window.playNext()" class="text-2xl hover:text-white"><i
+                                class="fas fa-step-forward"></i></button>
+                    </div>
+                    <button onclick="window.toggleFavCurrent()" id="pFavBtn" class="text-gray-300 text-lg"><i
+                            class="fas fa-heart"></i></button>
+                </div>
+                <div class="flex justify-between w-full mt-12 px-6 text-gray-300 text-sm pb-8">
+                    <button onclick="window.toggleShuffle()" id="pShuffleBtn"><i class="fas fa-random"></i></button>
+                    <button onclick="window.openAddToPlaylistMenu()"><i class="fas fa-list-ul"></i></button>
+                    <button onclick="window.toggleVolumeSlider()"><i class="fas fa-volume-up"></i></button>
+                    <button onclick="window.toggleRepeatMode()" id="pRepeatBtn"><i class="fas fa-redo"></i></button>
+                    <button onclick="window.toggleSpeedSlider()" class="relative"><i
+                            class="fas fa-tachometer-alt"></i><span id="speedBadge"
+                            class="speed-badge">1x</span></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MINI PLAYER -->
+        <div id="miniPlayer" class="mini-player cursor-pointer" onclick="window.showPlayer()">
+            <img id="mCover" src="" class="w-10 h-10 rounded-full object-cover">
+            <div class="flex-1 min-w-0">
+                <h4 id="mTitle" class="text-sm font-bold truncate">Not playing</h4>
+                <p id="mArtist" class="text-[10px] text-gray-300 truncate">Tap a track</p>
+            </div>
+            <button onclick="event.stopPropagation(); window.togglePlayPause();" class="text-white text-xl px-2"><i
+                    id="mPlayIcon" class="fas fa-play"></i></button>
+        </div>
+
+        <!-- Volume & Speed Sliders -->
+        <div id="volumeSliderFloat" class="volume-slider-container"><i class="fas fa-volume-down"></i><input
+                type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.8"><i class="fas fa-volume-up"></i>
+        </div>
+        <div id="speedSliderFloat" class="speed-slider-container"><i class="fas fa-tachometer-alt"></i><input
+                type="range" id="speedSlider" min="0.5" max="2" step="0.05" value="1"><span id="speedValue"
+                class="text-white text-xs w-8">1.0x</span></div>
+
+        <!-- MODALS -->
+        <div id="serverConnectedModal" class="modal-bg">
+            <div class="glass-card p-6 w-[85%] max-w-xs bg-[#1a1a24] flex flex-col items-center">
+                <i class="fas fa-check-circle text-4xl text-[#d4af37] mb-3"></i>
+                <h3 class="text-lg font-bold mb-2">Server Connected</h3>
+                <p class="text-[12px] text-gray-300 mb-4">The server is connected successfully!</p>
+                <button onclick="window.closeServerModal()"
+                    class="w-full py-2.5 rounded-xl bg-[#d4af37] text-black text-sm font-bold">OK</button>
+            </div>
+        </div>
+        <div id="loginModal" class="modal-bg">
+            <div class="glass-card p-6 w-[85%] max-w-sm bg-[#1a1a24]">
+                <h3 class="text-lg font-bold mb-2">🎙️ Creator Access</h3>
+                <p class="text-[11px] text-gray-400 mb-4">Login to upload, edit, download your tracks, and set avatar.
+                </p><input type="text" id="customIdInput"
+                    class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm mb-4 outline-none focus:border-[#d4af37]"
+                    placeholder="Your unique ID">
+                <div class="flex gap-2 mb-3"><button onclick="window.closeLoginModal()"
+                        class="flex-1 py-2.5 rounded-xl bg-white/10 text-sm">Cancel</button><button id="btnLoginConfirm"
+                        class="flex-1 py-2.5 rounded-xl bg-[#d4af37] text-black text-sm font-bold">Access</button></div>
+                <button onclick="window.generateRandomId()"
+                    class="w-full py-2.5 rounded-xl border border-[#d4af37]/40 text-[#d4af37] text-xs"><i
+                        class="fas fa-random mr-1"></i> Generate Random ID</button>
+            </div>
+        </div>
+        <div id="editModal" class="modal-bg">
+            <div class="glass-card p-6 w-[85%]">
+                <h3 class="text-lg font-bold mb-4"><i class="fas fa-pen-alt text-[#d4af37] mr-2"></i>Edit Track</h3>
+                <input type="text" id="editTitleInput"
+                    class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-sm mb-4">
+                <div class="flex gap-2 mb-3"><button onclick="document.getElementById('editCoverInput').click()"
+                        class="flex-1 glass-btn py-2 rounded-xl text-xs">🎨 Change Cover</button><span
+                        id="editCoverFileName" class="text-[10px] text-gray-400 truncate">No file</span></div><input
+                    type="file" id="editCoverInput" accept="image/*" class="hidden">
+                <div class="flex gap-2 mt-2"><button onclick="window.closeEditModal()"
+                        class="flex-1 py-2 rounded-xl bg-white/10 text-sm">Cancel</button><button id="btnSaveEdit"
+                        class="flex-1 py-2 rounded-xl bg-white text-black text-sm font-bold">Save</button></div>
+            </div>
+        </div>
+        <div id="addToPlaylistModal" class="modal-bg">
+            <div class="glass-card p-5 w-80">
+                <h3 class="font-bold mb-3">Add to Playlist</h3>
+                <div id="playlistListSimple" class="max-h-60 overflow-y-auto"></div><button
+                    onclick="window.closeAddModal()"
+                    class="mt-4 w-full glass-btn py-2 rounded-xl text-sm">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Server Connected Modal helpers
+        window.showServerModal = function () {
+            document.getElementById('serverConnectedModal').classList.add('active');
+        };
+        window.closeServerModal = function () {
+            document.getElementById('serverConnectedModal').classList.remove('active');
+        };
+        import { initializeApp } from "firebase/app";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc, where, getDocs, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
+
+        const firebaseConfig = {
+          apiKey: "YOUR_FIREBASE_API_KEY",
+          authDomain: "YOUR_FIREBASE_AUTH_DOMAIN",
+          projectId: "YOUR_FIREBASE_PROJECT_ID",
+          storageBucket: "YOUR_FIREBASE_STORAGE_BUCKET",
+          messagingSenderId: "YOUR_FIREBASE_MESSAGING_SENDER_ID",
+          appId: "YOUR_FIREBASE_APP_ID"
+        };
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const CLOUD_NAME = "YOUR_CLOUDINARY_CLOUD_NAME";
+        const UPLOAD_PRESET = "YOUR_CLOUDINARY_UPLOAD_PRESET";
+        // Mobile detection and APK redirect
+        function isMobile() {
+          return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+        // Trigger APK download on mobile, or show PWA install on desktop
+        function handleMobileRedirect() {
+          if (isMobile()) {
+            window.location.href = "https://github.com/Akshay-152/musicx/releases/download/V2.2.0/MUSICX_V2.2.0.apk";
+          } else {
+            if (window.installPromptEvent) {
+              const btn = document.createElement('button');
+              btn.textContent = 'Add to Home Screen';
+              btn.className = 'glass-btn px-4 py-2 rounded-full text-xs font-bold';
+              btn.onclick = async () => {
+                window.installPromptEvent.prompt();
+                const { outcome } = await window.installPromptEvent.userChoice;
+                if (outcome === "accepted") {
+                  showToast('App installed to home screen');
+                }
+                window.installPromptEvent = null;
+              };
+              document.body.appendChild(btn);
+            }
+          }
+        }
+        // Run on page load
+        window.addEventListener('load', handleMobileRedirect);
+        // Show login modal helper
+        window.showLoginModal = function () {
+          document.getElementById('loginModal').classList.add('active');
+        };
+        // Install Android app (menu item)
+        window.installAndroidApp = function () {
+          handleMobileRedirect();
+        };
+        // Attach click handler to login button
+        document.addEventListener('DOMContentLoaded', () => {
+          const loginBtn = document.getElementById('loginTrigger');
+          if (loginBtn) {
+            loginBtn.addEventListener('click', () => {
+              window.showLoginModal();
+            });
+          }
+        });
+
+        let currentUserId = null;
+        let tracks = [];
+        let audio = new Audio();
+        audio.preload = "auto";
+        audio.volume = 0.8;
+        let state = { currentIndex: -1, currentTrackId: null, isPlaying: false, isShuffle: false, shuffleQueue: [], shufflePos: 0, favorites: new Set(), repeatMode: "off" };
+        let playlists = [];
+        let currentDisplayMode = "all";
+        let searchQuery = "";
+        let durationCache = new Map(); // trackId -> formatted duration
+        let randomizedOrders = new Map();
+        const USER_ID_KEY = 'musix_custom_id';
+        const BACKGROUND_AUDIO_KEY = 'musix_background_audio_enabled';
+        let installPromptEvent = null;
+        let installPromptResolver = null;
+        let backgroundAudioEnabled = localStorage.getItem(BACKGROUND_AUDIO_KEY) !== 'off';
+        let activeSongNotification = null;
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', async () => {
+                try {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    await Promise.all(
+                        registrations
+                            .filter((registration) => {
+                                const scriptUrl = registration.active?.scriptURL || registration.waiting?.scriptURL || registration.installing?.scriptURL || '';
+                                return scriptUrl.endsWith('/sw.js');
+                            })
+                            .map((registration) => registration.unregister())
+                    );
+                    await navigator.serviceWorker.register('/service-worker.js', { updateViaCache: 'none' });
+                } catch (_) { }
+            });
+        }
+        window.addEventListener('beforeinstallprompt', (event) => {
+            event.preventDefault();
+            installPromptEvent = event;
+            if (installPromptResolver) {
+                installPromptResolver(event);
+                installPromptResolver = null;
+            }
+        });
+        window.addEventListener('appinstalled', () => {
+            installPromptEvent = null;
+            showToast("App installed");
+        });
+
+        function getCurrentTrack() {
+            return tracks.find((track) => track.id === state.currentTrackId) || null;
+        }
+
+        function saveBackgroundAudioPreference(enabled) {
+            backgroundAudioEnabled = enabled;
+            localStorage.setItem(BACKGROUND_AUDIO_KEY, enabled ? 'on' : 'off');
+        }
+
+        async function ensureSongNotificationPermission(showFeedback = false) {
+            if (!('Notification' in window)) {
+                if (showFeedback) showToast("Notifications not supported on this device", true);
+                return false;
+            }
+
+            let permission = Notification.permission;
+            if (permission === 'default') {
+                try {
+                    permission = await Notification.requestPermission();
+                } catch (_) { }
+            }
+
+            const granted = permission === 'granted';
+            saveBackgroundAudioPreference(granted);
+            if (showFeedback) {
+                showToast(granted ? "Background song alerts enabled" : "Allow notifications to show song alerts", !granted);
+            }
+            return granted;
+        }
+
+        async function showSongNotification(track, reason = '') {
+            if (!track || !backgroundAudioEnabled || !('Notification' in window) || Notification.permission !== 'granted') return;
+
+            const title = state.isPlaying ? `Now playing: ${track.title}` : `Paused: ${track.title}`;
+            const body = [track.artist || 'Unknown artist', reason].filter(Boolean).join(' - ');
+            const options = {
+                body,
+                tag: 'musix-now-playing',
+                renotify: true,
+                silent: true,
+                icon: track.coverUrl,
+                image: track.coverUrl,
+                badge: '/static/app-icon.svg'
+            };
+
+            try {
+                if ('serviceWorker' in navigator) {
+                    const registration = await navigator.serviceWorker.getRegistration();
+                    if (registration) {
+                        await registration.showNotification(title, options);
+                        return;
+                    }
+                }
+
+                if (activeSongNotification) activeSongNotification.close();
+                activeSongNotification = new Notification(title, options);
+                activeSongNotification.onclick = () => {
+                    window.focus();
+                    activeSongNotification?.close();
+                };
+            } catch (_) { }
+        }
+
+        window.enableBackgroundAudio = async () => {
+            document.getElementById('libraryMenu').classList.add('hidden');
+            const granted = await ensureSongNotificationPermission(true);
+            if (granted) {
+                showToast("Music can keep running while the app is in the background");
+            }
+        };
+
+        // Helper: format seconds to MM:SS
+        function formatDuration(sec) { if (isNaN(sec) || !isFinite(sec)) return "00:00"; const m = Math.floor(sec / 60); const s = Math.floor(sec % 60); return `${m}:${s.toString().padStart(2, '0')}`; }
+
+        // Fetch duration from audio URL (without playing) and update cache & UI
+        async function fetchAndCacheDuration(trackId, audioUrl) {
+            if (durationCache.has(trackId)) return;
+            return new Promise((resolve) => {
+                const tempAudio = new Audio();
+                tempAudio.preload = "metadata";
+                tempAudio.onloadedmetadata = () => {
+                    const dur = tempAudio.duration;
+                    if (isFinite(dur)) {
+                        durationCache.set(trackId, formatDuration(dur));
+                        // update the specific track card if visible
+                        const card = document.querySelector(`.track-card[data-track-id="${trackId}"] .duration-display`);
+                        if (card) card.innerText = formatDuration(dur);
+                    }
+                    tempAudio.src = "";
+                    resolve();
+                };
+                tempAudio.onerror = () => resolve();
+                tempAudio.src = audioUrl;
+            });
+        }
+
+        function saveUserIdToDevice(id) {
+            if (!id) return;
+            localStorage.setItem(USER_ID_KEY, id);
+        }
+
+        // Avatar & Auth (same as before)
+        async function uploadAvatar(file) { if (!currentUserId) return; const fd = new FormData(); fd.append("file", file); fd.append("upload_preset", UPLOAD_PRESET); const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: "POST", body: fd }); const data = await res.json(); await setDoc(doc(db, "users", currentUserId), { avatarUrl: data.secure_url, userId: currentUserId }, { merge: true }); return data.secure_url; }
+        async function loadAvatar() { if (!currentUserId) return; const snap = await getDoc(doc(db, "users", currentUserId)); if (snap.exists() && snap.data().avatarUrl) { document.getElementById('avatarImg').src = snap.data().avatarUrl; document.getElementById('avatarImg').classList.remove('hidden'); document.getElementById('avatarIcon').classList.add('hidden'); } else { document.getElementById('avatarImg').classList.add('hidden'); document.getElementById('avatarIcon').classList.remove('hidden'); } }
+        async function handleCustomLogin(id) { currentUserId = id; saveUserIdToDevice(id); document.getElementById('userGreeting').innerText = id; await loadAvatar(); document.getElementById('authTrigger').innerHTML = `<img id="avatarImg" class="avatar-preview hidden"><i id="avatarIcon" class="fas fa-user text-sm text-white"></i>`; await loadAvatar(); document.getElementById('uploadPanel').classList.add('hidden'); document.getElementById('upArtist').value = id; const snap = await getDocs(query(collection(db, "favorites"), where("userId", "==", currentUserId))); state.favorites.clear(); snap.forEach(d => state.favorites.add(d.data().trackId)); displayFilteredTracks(); showToast(`Welcome ${id}`); }
+        function setGuestUI() { currentUserId = null; document.getElementById('userGreeting').innerText = "Guest user"; document.getElementById('authTrigger').innerHTML = `<img id="avatarImg" class="hidden"><i id="avatarIcon" class="fas fa-user text-sm text-white"></i>`; document.getElementById('uploadPanel').classList.add('hidden'); document.getElementById('upArtist').value = ''; state.favorites.clear(); displayFilteredTracks(); }
+        document.getElementById('authTrigger').onclick = () => { if (currentUserId) { if (confirm("Log out?")) { localStorage.removeItem(USER_ID_KEY); setGuestUI(); showToast("Signed out"); } } else { document.getElementById('customIdInput').value = localStorage.getItem(USER_ID_KEY) || ''; document.getElementById('loginModal').classList.add('active'); } };
+        document.getElementById('btnLoginConfirm').onclick = () => { const id = document.getElementById('customIdInput').value.trim(); if (id) { handleCustomLogin(id); closeLoginModal(); } else showToast("Enter ID", true); };
+        window.closeLoginModal = () => document.getElementById('loginModal').classList.remove('active');
+        window.generateRandomId = () => { document.getElementById('customIdInput').value = "user_" + Math.random().toString(36).substring(2, 8); };
+        document.getElementById('authTrigger').addEventListener('click', (e) => { if (currentUserId && e.target.closest('#authTrigger')) { const input = document.getElementById('avatarUpload'); input.onchange = async (ev) => { const file = ev.target.files[0]; if (file) { await uploadAvatar(file); await loadAvatar(); showToast("Avatar updated"); } }; input.click(); } });
+        window.toggleUploadPanel = () => {
+            document.getElementById('libraryMenu').classList.add('hidden');
+            if (!currentUserId) return showToast("Login first", true);
+            document.getElementById('uploadPanel').classList.toggle('hidden');
+        };
+        function isStandaloneApp() {
+            return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        }
+
+        function waitForInstallPrompt(timeout = 2500) {
+            if (installPromptEvent) return Promise.resolve(installPromptEvent);
+            return new Promise((resolve) => {
+                const timer = setTimeout(() => {
+                    if (installPromptResolver) installPromptResolver = null;
+                    resolve(null);
+                }, timeout);
+                installPromptResolver = (event) => {
+                    clearTimeout(timer);
+                    resolve(event);
+                };
+            });
+        }
+
+        window.installAndroidApp = async () => {
+            document.getElementById('libraryMenu').classList.add('hidden');
+            if (isStandaloneApp()) {
+                showToast("Already installed");
+                return;
+            }
+
+            const promptEvent = installPromptEvent || await waitForInstallPrompt();
+            if (promptEvent) {
+                promptEvent.prompt();
+                try {
+                    const choice = await promptEvent.userChoice;
+                    if (choice?.outcome === 'accepted') {
+                        showToast("Installing app...");
+                    } else {
+                        showToast("Install canceled", true);
+                    }
+                } catch (_) { }
+                installPromptEvent = null;
+                return;
+            }
+
+            showToast("Open in Chrome and tap Add to Home screen", true);
+        };
+
+        function setFileInput(input, file) {
+            const transfer = new DataTransfer();
+            transfer.items.add(file);
+            input.files = transfer.files;
+        }
+
+        function updateUploadSelectionUI() {
+            const audioFile = document.getElementById('upAudio').files[0];
+            const coverFile = document.getElementById('upCover').files[0];
+            document.getElementById('upAudioLabel').innerText = audioFile ? audioFile.name : 'Audio';
+            document.getElementById('upCoverLabel').innerText = coverFile ? coverFile.name : 'Cover';
+            const preview = [];
+            if (audioFile) preview.push(`Audio: ${audioFile.name}`);
+            if (coverFile) preview.push(`Cover: ${coverFile.name}`);
+            document.getElementById('filePreview').innerHTML = preview.join(' <span class="text-white/30">|</span> ');
+        }
+
+        function getBackendBaseUrl() {
+            // Use fixed ngrok URL by default, allow override for localhost development
+            const NGROK_URL = 'https://rarest-nonpungently-kathaleen.ngrok-free.dev';
+            // If running on localhost:5500, use local backend for dev
+            if (window.location.port === '5500') return 'http://127.0.0.1:5000';
+            // If a custom backend URL is set in localStorage, use it
+            const customUrl = localStorage.getItem('musix_backend_url');
+            if (customUrl && /^https?:\/\//i.test(customUrl)) return customUrl;
+            // Otherwise, use the fixed ngrok URL
+            return NGROK_URL;
+        }
+
+        function resolveBackendUrl(path) {
+            if (/^https?:\/\//i.test(path)) return path;
+            return `${getBackendBaseUrl()}${path}`;
+        }
+
+        async function clearOudioFolder() {
+            const response = await fetch(resolveBackendUrl('/api/clear-oudio'), {
+                method: 'POST'
+            });
+            if (!response.ok) throw new Error('Could not clear oudio folder');
+            return response.json();
+        }
+
+        function getBaseQueueTracks() {
+            if (currentDisplayMode === "favorites") return tracks.filter(t => state.favorites.has(t.id));
+            if (currentDisplayMode.startsWith("playlist:")) {
+                const idx = parseInt(currentDisplayMode.split(":")[1], 10);
+                const songIds = new Set(playlists[idx]?.songs || []);
+                return tracks.filter(t => songIds.has(t.id));
+            }
+            return [...tracks];
+        }
+
+        function shuffleArray(items) {
+            const copy = [...items];
+            for (let i = copy.length - 1; i > 0; i -= 1) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [copy[i], copy[j]] = [copy[j], copy[i]];
+            }
+            return copy;
+        }
+
+        function getCurrentQueueTracks() {
+            const baseTracks = getBaseQueueTracks();
+            const order = randomizedOrders.get(currentDisplayMode);
+            if (!order?.length) return baseTracks;
+
+            const trackMap = new Map(baseTracks.map(track => [track.id, track]));
+            const ordered = [];
+
+            order.forEach((trackId) => {
+                const track = trackMap.get(trackId);
+                if (track) {
+                    ordered.push(track);
+                    trackMap.delete(trackId);
+                }
+            });
+
+            return [...ordered, ...trackMap.values()];
+        }
+
+        async function convertYoutubeUrlToAudioFile(url) {
+            const response = await fetch(resolveBackendUrl('/api/convert-youtube'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Conversion failed');
+
+            const audioResponse = await fetch(resolveBackendUrl(data.download_url));
+            if (!audioResponse.ok) throw new Error('Converted file could not be loaded');
+
+            const blob = await audioResponse.blob();
+            const file = new File([blob], data.filename, { type: blob.type || 'audio/mpeg' });
+            setFileInput(document.getElementById('upAudio'), file);
+            if (!document.getElementById('upTitle').value.trim()) document.getElementById('upTitle').value = data.title || file.name.replace(/\.mp3$/i, '');
+            updateUploadSelectionUI();
+            showToast(`Saved to ${data.stored_path}`);
+            return file;
+        }
+
+        document.getElementById('upAudio').addEventListener('change', updateUploadSelectionUI);
+        document.getElementById('upCover').addEventListener('change', updateUploadSelectionUI);
+
+        // Speed control + notification
+        const speedSlider = document.getElementById('speedSlider');
+        const speedValue = document.getElementById('speedValue');
+        const speedBadge = document.getElementById('speedBadge');
+        speedSlider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            audio.playbackRate = val;
+            speedValue.innerText = val.toFixed(2) + 'x';
+            speedBadge.innerText = val.toFixed(1) + 'x';
+            showToast(`⚡ Speed ${val.toFixed(2)}x`); // notification on speed change
+        });
+        window.toggleSpeedSlider = () => { const spdDiv = document.getElementById('speedSliderFloat'); spdDiv.classList.add('visible'); if (window.speedHideTimeout) clearTimeout(window.speedHideTimeout); window.speedHideTimeout = setTimeout(() => spdDiv.classList.remove('visible'), 4000); };
+
+        // Search
+        document.getElementById('searchInput').addEventListener('input', (e) => { searchQuery = e.target.value.toLowerCase(); displayFilteredTracks(); });
+
+        window.randomizeSongOrder = () => {
+            document.getElementById('libraryMenu').classList.add('hidden');
+            if (currentDisplayMode === "playlistsView") return showToast("Open a song list first", true);
+
+            const queue = getBaseQueueTracks();
+            if (queue.length < 2) return showToast("Need at least 2 songs", true);
+
+            randomizedOrders.set(currentDisplayMode, shuffleArray(queue.map(track => track.id)));
+
+            const currentQueue = getCurrentQueueTracks();
+            const currentQueueIndex = currentQueue.findIndex(track => track.id === state.currentTrackId);
+            state.currentIndex = currentQueueIndex;
+            showToast("Song order changed");
+            displayFilteredTracks();
+        };
+
+        function displayFilteredTracks() {
+            let filtered = getCurrentQueueTracks();
+            if (searchQuery) filtered = filtered.filter(t => t.title.toLowerCase().includes(searchQuery) || (t.artist && t.artist.toLowerCase().includes(searchQuery)));
+            const titleMap = { all: "🎧 Global Library", favorites: "❤️ Favorites" };
+            let title = titleMap[currentDisplayMode] || "Global Library";
+            if (currentDisplayMode.startsWith("playlist:")) title = `📀 ${playlists[parseInt(currentDisplayMode.split(":")[1])]?.name || "Playlist"}`;
+            document.getElementById('libraryTitle').innerHTML = title;
+            const list = document.getElementById('tracksList');
+            if (filtered.length === 0) { list.innerHTML = `<div class="text-center text-gray-400 py-10"><i class="fas fa-music-slash text-3xl mb-2"></i><p>No tracks found</p></div>`; return; }
+            list.innerHTML = filtered.map(t => `
+            <div class="glass-card p-3 flex items-center gap-3 cursor-pointer track-card" data-track-id="${t.id}" onclick="window.playSpecificTrack('${t.id}')" ondblclick="window.playSpecificTrack('${t.id}'); window.showPlayer();">
+                <div class="relative w-12 h-12 rounded-full overflow-hidden"><img src="${t.coverUrl}" class="w-full h-full object-cover">${state.currentTrackId === t.id && state.isPlaying ? '<div class="absolute inset-0 bg-black/40 flex items-center justify-center"><div class="w-2 h-2 bg-[#d4af37] rounded-full animate-pulse"></div></div>' : ''}</div>
+                <div class="flex-1 min-w-0"><h4 class="font-bold text-sm truncate ${state.currentTrackId === t.id ? 'text-[#d4af37]' : 'text-white'}">${escapeHtml(t.title)}</h4><p class="text-[10px] text-gray-300">${escapeHtml(t.artist || 'Unknown')}</p></div>
+                <div class="flex items-center gap-2">
+                    <span class="track-duration duration-display">${durationCache.get(t.id) || '...'}</span>
+                    <a href="${t.audioUrl}" download="${escapeHtml(t.title)}.mp3" target="_blank" rel="noreferrer" onclick="event.stopPropagation()" class="download-btn" title="Direct download"><i class="fas fa-download"></i></a>
+                    ${currentUserId === t.ownerId ? `<button onclick="event.stopPropagation(); window.openEdit('${t.id}')" class="text-gray-300 hover:text-[#d4af37]"><i class="fas fa-edit"></i></button><button onclick="event.stopPropagation(); window.delTrack('${t.id}')" class="text-gray-300 hover:text-red-400"><i class="fas fa-trash-alt"></i></button>` : ''}
+                    <button onclick="event.stopPropagation(); window.toggleFav('${t.id}')" class="p-1 ${state.favorites.has(t.id) ? 'text-[#d4af37]' : 'text-gray-400'}"><i class="${state.favorites.has(t.id) ? 'fas' : 'far'} fa-heart"></i></button>
+                </div>
+            </div>`).join('');
+            // Preload durations for tracks without cache
+            filtered.forEach(t => { if (!durationCache.has(t.id) && t.audioUrl) fetchAndCacheDuration(t.id, t.audioUrl); });
+        }
+        function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, function (m) { if (m === '&') return '&amp;'; if (m === '<') return '&lt;'; if (m === '>') return '&gt;'; return m; }); }
+
+        // Playback & core logic (same as before)
+        function playTrackIdx(idx) {
+            const queue = getCurrentQueueTracks();
+            if (idx < 0 || idx >= queue.length) return;
+            const track = queue[idx];
+            if (state.currentTrackId === track.id && state.isPlaying) { audio.pause(); state.isPlaying = false; updateAllUI(); return; }
+            state.currentIndex = idx;
+            state.currentTrackId = track.id;
+            audio.src = track.audioUrl;
+            audio.play().then(async () => { state.isPlaying = true; updateAppGradient(); updateAllUI(); await showSongNotification(track, document.hidden ? 'Background playback active' : 'Tap notification to return'); }).catch(() => { state.isPlaying = false; updateAllUI(); });
+        }
+        window.playSpecificTrack = (id) => {
+            const queue = getCurrentQueueTracks();
+            const idx = queue.findIndex(t => t.id === id);
+            if (idx !== -1) playTrackIdx(idx);
+        };
+        window.togglePlayPause = () => {
+            const queue = getCurrentQueueTracks();
+            if (!queue.length) return;
+            const currentQueueIndex = queue.findIndex(t => t.id === state.currentTrackId);
+            if (currentQueueIndex === -1) playTrackIdx(0);
+            else if (state.isPlaying) { audio.pause(); state.isPlaying = false; updateAllUI(); }
+            else { state.currentIndex = currentQueueIndex; audio.play().then(async () => { state.isPlaying = true; updateAllUI(); await showSongNotification(getCurrentTrack(), document.hidden ? 'Background playback active' : 'Playback resumed'); }).catch(() => { state.isPlaying = false; updateAllUI(); }); }
+        };
+        window.playNext = () => {
+            const queue = getCurrentQueueTracks();
+            if (!queue.length) return;
+            const currentQueueIndex = queue.findIndex(t => t.id === state.currentTrackId);
+            let next = state.isShuffle ? state.shuffleQueue[(++state.shufflePos) % state.shuffleQueue.length] : ((currentQueueIndex === -1 ? 0 : currentQueueIndex + 1) % queue.length);
+            playTrackIdx(next);
+        };
+        window.playPrev = () => {
+            const queue = getCurrentQueueTracks();
+            if (!queue.length) return;
+            const currentQueueIndex = queue.findIndex(t => t.id === state.currentTrackId);
+            let prev = state.isShuffle ? state.shuffleQueue[(--state.shufflePos + state.shuffleQueue.length) % state.shuffleQueue.length] : ((currentQueueIndex === -1 ? 0 : currentQueueIndex - 1 + queue.length) % queue.length);
+            playTrackIdx(prev);
+        };
+        window.toggleFav = async (tid) => { if (!currentUserId) return showToast("Login first", true); const ref = doc(db, "favorites", `${currentUserId}_${tid}`); if (state.favorites.has(tid)) { await deleteDoc(ref); state.favorites.delete(tid); showToast("Removed from favs"); } else { await setDoc(ref, { userId: currentUserId, trackId: tid, createdAt: serverTimestamp() }); state.favorites.add(tid); showToast("Added to favorites ♡"); } updateFavIcons(); displayFilteredTracks(); };
+        window.toggleFavCurrent = () => { if (state.currentTrackId) toggleFav(state.currentTrackId); };
+        function updateFavIcons() { const isFav = state.favorites.has(state.currentTrackId); document.getElementById('pFavBtn').innerHTML = `<i class="${isFav ? 'fas' : 'far'} fa-heart ${isFav ? 'text-[#d4af37]' : ''}"></i>`; }
+        window.delTrack = async (tid) => { if (!currentUserId) return; const track = tracks.find(t => t.id === tid); if (track?.ownerId !== currentUserId) return showToast("Only owner can delete", true); if (confirm("Delete permanently?")) { if (state.currentTrackId === tid) { audio.pause(); state.isPlaying = false; state.currentIndex = -1; state.currentTrackId = null; updateAllUI(); } await deleteDoc(doc(db, "tracks", tid)); showToast("Deleted"); } };
+        window.openEdit = (tid) => { const t = tracks.find(x => x.id === tid); if (!t || t.ownerId !== currentUserId) return showToast("Only your tracks", true); window.editingId = tid; document.getElementById('editTitleInput').value = t.title; document.getElementById('editCoverFileName').innerText = 'No file'; document.getElementById('editModal').classList.add('active'); };
+        document.getElementById('btnSaveEdit').onclick = async () => { const title = document.getElementById('editTitleInput').value; const file = document.getElementById('editCoverInput').files[0]; if (!title) return; try { const updates = { title }; if (file) updates.coverUrl = await uploadMedia(file, "image"); await updateDoc(doc(db, "tracks", editingId), updates); showToast("Updated!"); closeEditModal(); } catch (e) { showToast("Error", true); } };
+        async function uploadMedia(file, type) { const fd = new FormData(); fd.append("file", file); fd.append("upload_preset", UPLOAD_PRESET); if (type === "audio") fd.append("resource_type", "video"); const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${type === 'audio' ? 'video' : 'image'}/upload`, { method: "POST", body: fd }); if (!res.ok) throw new Error(); return (await res.json()).secure_url; }
+        document.getElementById('btnPublish').onclick = async () => {
+            if (!currentUserId) return showToast("Login first", true);
+            const btn = document.getElementById('btnPublish');
+            const titleInput = document.getElementById('upTitle');
+            const artistInput = document.getElementById('upArtist');
+            const youtubeUrlInput = document.getElementById('upYoutubeUrl');
+            const audioInput = document.getElementById('upAudio');
+            const coverInput = document.getElementById('upCover');
+            let audioFile = audioInput.files[0];
+            const youtubeUrl = youtubeUrlInput.value.trim();
+
+            if (!audioFile && !youtubeUrl) return showToast("Choose audio or paste a YouTube URL", true);
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing';
+
+            try {
+                if (!audioFile && youtubeUrl) {
+                    audioFile = await convertYoutubeUrlToAudioFile(youtubeUrl);
+                }
+
+                const title = titleInput.value.trim() || audioFile.name.replace(/\.[^.]+$/, '');
+                const artist = artistInput.value.trim() || currentUserId;
+                titleInput.value = title;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading';
+
+                const audioUrl = await uploadMedia(audioFile, "audio");
+                let coverUrl = "https://images.unsplash.com/photo-1493225255756-d9584f8606e9?w=500&h=500&fit=crop";
+                if (coverInput.files[0]) coverUrl = await uploadMedia(coverInput.files[0], "image");
+                await addDoc(collection(db, "tracks"), { title, audioUrl, coverUrl, artist, ownerId: currentUserId, createdAt: serverTimestamp() });
+                try {
+                    await clearOudioFolder();
+                } catch (cleanupError) {
+                    console.error(cleanupError);
+                }
+                showToast("Published!");
+                titleInput.value = "";
+                artistInput.value = currentUserId || "";
+                youtubeUrlInput.value = "";
+                audioInput.value = null;
+                coverInput.value = null;
+                updateUploadSelectionUI();
+            } catch (e) {
+                showToast(e?.message || "Failed", true);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = "🚀 Publish Track";
+            }
+        };
+        window.showPlayer = () => { document.getElementById('view-player').classList.remove('view-hidden-bottom'); document.getElementById('view-player').classList.add('view-active'); document.getElementById('miniPlayer').classList.remove('show'); };
+        window.hidePlayer = () => { document.getElementById('view-player').classList.remove('view-active'); document.getElementById('view-player').classList.add('view-hidden-bottom'); if (state.currentTrackId) document.getElementById('miniPlayer').classList.add('show'); };
+        window.toggleVolumeSlider = () => { const volDiv = document.getElementById('volumeSliderFloat'); volDiv.classList.add('visible'); if (window.volumeHideTimeout) clearTimeout(window.volumeHideTimeout); window.volumeHideTimeout = setTimeout(() => volDiv.classList.remove('visible'), 4000); };
+        document.getElementById('volumeSlider').addEventListener('input', (e) => { audio.volume = parseFloat(e.target.value); showToast(`Volume ${Math.round(audio.volume * 100)}%`); });
+        window.toggleShuffle = () => { const queue = getCurrentQueueTracks(); state.isShuffle = !state.isShuffle; document.getElementById('pShuffleBtn').classList.toggle('text-[#d4af37]', state.isShuffle); showToast(state.isShuffle ? "Shuffle On" : "Shuffle Off"); if (state.isShuffle && queue.length) { state.shuffleQueue = [...Array(queue.length).keys()].sort(() => Math.random() - 0.5); state.shufflePos = state.shuffleQueue.indexOf(Math.max(state.currentIndex, 0)); if (state.shufflePos === -1) state.shufflePos = 0; } };
+        window.toggleRepeatMode = () => { state.repeatMode = state.repeatMode === "off" ? "one" : (state.repeatMode === "one" ? "all" : "off"); document.getElementById('pRepeatBtn').classList.toggle('repeat-active', state.repeatMode !== "off"); showToast(`Repeat ${state.repeatMode === "off" ? "Off" : (state.repeatMode === "one" ? "One" : "All")}`); };
+        function updateAllUI() { const t = getCurrentTrack(); if (!t) return; document.getElementById('mTitle').innerText = t.title; document.getElementById('mArtist').innerText = t.artist; document.getElementById('mCover').src = t.coverUrl; document.getElementById('mPlayIcon').className = state.isPlaying ? "fas fa-pause" : "fas fa-play"; document.getElementById('miniPlayer').classList.add('show'); document.getElementById('pTitle').innerText = t.title; document.getElementById('pArtist').innerText = t.artist; document.getElementById('pCover').src = t.coverUrl; document.getElementById('pPlayIcon').className = state.isPlaying ? "fas fa-pause" : "fas fa-play ml-1"; document.getElementById('pCover').style.animationPlayState = state.isPlaying ? 'running' : 'paused'; document.getElementById('pTimeTotal').innerText = formatTime(audio.duration); updateFavIcons(); displayFilteredTracks(); if (audio.duration) updateProgressUI(audio.currentTime / audio.duration); updateMediaSession(); }
+        function updateProgressUI(percent) { const c = 691.15; document.getElementById('pProgressRing').style.strokeDashoffset = c - (percent * c); document.getElementById('pKnob').style.transform = `rotate(${percent * 360}deg)`; }
+        function formatTime(secs) { if (isNaN(secs)) return "00:00"; const m = Math.floor(secs / 60), s = Math.floor(secs % 60); return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`; }
+        audio.addEventListener('loadedmetadata', () => { document.getElementById('pTimeCurrent').innerText = formatTime(audio.currentTime || 0); document.getElementById('pTimeTotal').innerText = formatTime(audio.duration); updateMediaSession(); });
+        audio.addEventListener('timeupdate', () => { if (audio.duration && !isDraggingKnob) { updateProgressUI(audio.currentTime / audio.duration); document.getElementById('pTimeCurrent').innerText = formatTime(audio.currentTime); document.getElementById('pTimeTotal').innerText = formatTime(audio.duration); } document.getElementById('waveAnim').style.display = state.isPlaying ? 'inline-flex' : 'none'; updateMediaSession(); });
+        audio.addEventListener('play', async () => { state.isPlaying = true; updateAllUI(); await showSongNotification(getCurrentTrack(), document.hidden ? 'Background playback active' : 'Playback resumed'); });
+        audio.addEventListener('pause', async () => { state.isPlaying = false; updateAllUI(); await showSongNotification(getCurrentTrack(), 'Playback paused'); });
+        audio.addEventListener('ended', () => { if (state.repeatMode === "one") { audio.currentTime = 0; audio.play(); } else playNext(); });
+        let isDraggingKnob = false, lastKnobAngle = 0, dragStartTime = 0;
+        const knobDiv = document.getElementById('pKnob'); function startDrag(e) { isDraggingKnob = true; e.preventDefault(); dragStartTime = audio.currentTime; lastKnobAngle = getAngleFromEvent(e, knobDiv); } function onDrag(e) { if (!isDraggingKnob || !audio.duration) return; let angle = getAngleFromEvent(e, knobDiv); let delta = angle - lastKnobAngle; if (delta > 180) delta -= 360; if (delta < -180) delta += 360; let newTime = dragStartTime + (delta / 360) * audio.duration * 0.4; newTime = Math.min(Math.max(0, newTime), audio.duration); audio.currentTime = newTime; dragStartTime = newTime; lastKnobAngle = angle; updateProgressUI(audio.currentTime / audio.duration); } function stopDrag() { isDraggingKnob = false; } function getAngleFromEvent(e, el) { const rect = el.getBoundingClientRect(); const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2; let cx_, cy_; if (e.touches) { cx_ = e.touches[0].clientX; cy_ = e.touches[0].clientY; } else { cx_ = e.clientX; cy_ = e.clientY; } let angle = Math.atan2(cy_ - cy, cx_ - cx) * (180 / Math.PI); return (angle + 360) % 360; } knobDiv.addEventListener('mousedown', startDrag); knobDiv.addEventListener('touchstart', startDrag); window.addEventListener('mousemove', onDrag); window.addEventListener('mouseup', stopDrag); window.addEventListener('touchmove', onDrag); window.addEventListener('touchend', stopDrag);
+        function setMediaSessionHandler(action, handler) {
+            try {
+                navigator.mediaSession.setActionHandler(action, handler);
+            } catch (_) { }
+        }
+        function updateMediaSession() {
+            if (!('mediaSession' in navigator)) return;
+            const t = getCurrentTrack();
+
+            setMediaSessionHandler('play', () => window.togglePlayPause());
+            setMediaSessionHandler('pause', () => window.togglePlayPause());
+            setMediaSessionHandler('previoustrack', () => window.playPrev());
+            setMediaSessionHandler('nexttrack', () => window.playNext());
+            setMediaSessionHandler('seekbackward', (details) => { audio.currentTime = Math.max(0, audio.currentTime - (details?.seekOffset || 10)); });
+            setMediaSessionHandler('seekforward', (details) => { audio.currentTime = Math.min(audio.duration || audio.currentTime, audio.currentTime + (details?.seekOffset || 10)); });
+            setMediaSessionHandler('seekto', (details) => {
+                if (typeof details?.seekTime === 'number') {
+                    audio.currentTime = details.seekTime;
+                }
+            });
+
+            if (!t) {
+                navigator.mediaSession.playbackState = 'none';
+                return;
+            }
+
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: t.title,
+                artist: t.artist || 'Artist',
+                artwork: [{ src: t.coverUrl, sizes: '512x512' }]
+            });
+            navigator.mediaSession.playbackState = state.isPlaying ? 'playing' : 'paused';
+            try {
+                if (audio.duration && isFinite(audio.duration)) {
+                    navigator.mediaSession.setPositionState({
+                        duration: audio.duration,
+                        playbackRate: audio.playbackRate || 1,
+                        position: Math.min(audio.currentTime || 0, audio.duration)
+                    });
+                }
+            } catch (_) { }
+        }
+        function updateAppGradient() {
+
+            const colors = [
+                ['#2c1525', '#110a0e'],
+                ['#15252c', '#0a1114'],
+                ['#2c2515', '#110e0a'],
+
+                ['#1f1a2e', '#0c0a14'], // deep violet
+                ['#1a2e2c', '#0a1413'], // teal dark
+                ['#2e1a1a', '#140a0a'], // dark red
+                ['#1f2e1a', '#0c140a'], // olive green
+                ['#2a1f2e', '#120a14'], // purple wine
+                ['#1a1f2e', '#0a0c14'], // midnight blue
+                ['#2e2a1a', '#14120a'], // warm gold dark
+                ['#1a2e24', '#0a1410'], // green cyan
+                ['#2e1f25', '#140a0f'], // rose dark
+                ['#1f2a2e', '#0c1214']  // steel blue
+            ];
+
+
+            const pair = colors[Math.floor(Math.random() * colors.length)]; const angle = Math.floor(Math.random() * 360); const newGrad = document.createElement('div'); newGrad.className = 'absolute inset-0 transition-opacity duration-1000 opacity-0'; newGrad.style.background = `linear-gradient(${angle}deg, ${pair[0]} 0%, ${pair[1]} 100%)`; const container = document.getElementById('bgGradientContainer'); container.appendChild(newGrad); void newGrad.offsetWidth; newGrad.classList.remove('opacity-0'); if (window.currentGradDiv) { const old = window.currentGradDiv; old.classList.add('opacity-0'); setTimeout(() => old.remove(), 1050); } window.currentGradDiv = newGrad;
+        }
+        onSnapshot(query(collection(db, "tracks"), orderBy("createdAt", "desc")), (snap) => { tracks = snap.docs.map(d => ({ id: d.id, ...d.data() })); displayFilteredTracks(); document.getElementById('trackCounter').innerText = `${tracks.length} tracks`; });
+        function savePlaylists() { localStorage.setItem('musix_playlists', JSON.stringify(playlists)); } function loadPlaylists() { const data = localStorage.getItem('musix_playlists'); playlists = data ? JSON.parse(data) : []; } loadPlaylists();
+        window.createPlaylistPrompt = () => { let name = prompt("Playlist name:"); if (name?.trim()) { playlists.push({ name: name.trim(), songs: [] }); savePlaylists(); showToast(`✨ "${name}" created`); renderPlaylistsView(); } };
+        function renderPlaylistsView() { const container = document.getElementById('playlistsContainer'); if (currentDisplayMode === "playlistsView") { container.innerHTML = `<h3 class="text-white font-bold mb-3"><i class="fas fa-list-ul mr-2"></i>Your Playlists</h3>` + playlists.map((pl, idx) => `<div class="glass-card p-3 mb-2 cursor-pointer hover:border-[#d4af37]" onclick="window.loadPlaylist(${idx})"><i class="fas fa-folder-open mr-2 text-[#d4af37]"></i> ${pl.name} <span class="text-[10px] text-gray-400">(${pl.songs.length})</span></div>`).join(''); container.classList.remove('hidden'); } else container.classList.add('hidden'); }
+        window.loadPlaylist = (idx) => { currentDisplayMode = `playlist:${idx}`; displayFilteredTracks(); };
+        window.showAllSongs = () => { currentDisplayMode = "all"; displayFilteredTracks(); };
+        window.showFavoritesPlaylist = () => { currentDisplayMode = "favorites"; displayFilteredTracks(); };
+        window.togglePlaylistsView = () => { currentDisplayMode = "playlistsView"; renderPlaylistsView(); document.getElementById('tracksList').innerHTML = '<div class="text-center text-gray-400 py-10"><i class="fas fa-folder-open text-3xl mb-2"></i><p>Select a playlist above</p></div>'; };
+        window.openAddToPlaylistMenu = () => { if (!state.currentTrackId) return; const modal = document.getElementById('addToPlaylistModal'); const container = document.getElementById('playlistListSimple'); container.innerHTML = playlists.map((pl, idx) => `<div class="p-2 cursor-pointer hover:bg-white/10 rounded-lg" onclick="window.addCurrentToPlaylist(${idx})">📁 ${pl.name}</div>`).join(''); if (playlists.length === 0) container.innerHTML = '<div class="text-gray-400 text-center">No playlists yet</div>'; modal.classList.add('active'); };
+        window.addCurrentToPlaylist = (idx) => { if (state.currentTrackId && !playlists[idx].songs.includes(state.currentTrackId)) { playlists[idx].songs.push(state.currentTrackId); savePlaylists(); showToast(`Added to ${playlists[idx].name}`); closeAddModal(); } };
+        window.closeAddModal = () => document.getElementById('addToPlaylistModal').classList.remove('active');
+        window.closeEditModal = () => document.getElementById('editModal').classList.remove('active');
+        window.showToast = (msg, isError = false) => { const container = document.getElementById('toast-container'); const el = document.createElement('div'); el.className = 'toast'; el.innerHTML = `<i class="fas ${isError ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i> ${msg}`; container.appendChild(el); setTimeout(() => el.classList.add('visible'), 10); setTimeout(() => { if (el.classList.contains('visible')) { el.classList.remove('visible'); setTimeout(() => el.remove(), 250); } }, 2200); };
+        // Check Server button logic
+        setTimeout(() => {
+            const btn = document.getElementById('checkServerBtn');
+            if (btn) {
+                btn.addEventListener('click', async function () {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+                    try {
+                        const res = await fetch(resolveBackendUrl('/health'), { method: 'GET', headers: { 'ngrok-skip-browser-warning': 'true' }, cache: 'no-store' });
+                        if (res.ok) {
+                            window.showServerModal();
+                        } else {
+                            window.showToast('Server not reachable.', true);
+                        }
+                    } catch {
+                        window.showToast('Server not reachable.', true);
+                    }
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-signal text-[#d4af37]"></i> Check Server';
+                });
+            }
+        }, 0);
+
+        document.getElementById('menuToggleBtn').onclick = (e) => { e.stopPropagation(); document.getElementById('libraryMenu').classList.toggle('hidden'); };
+        document.addEventListener('click', (e) => { if (!e.target.closest('#menuToggleBtn') && !e.target.closest('#libraryMenu')) document.getElementById('libraryMenu').classList.add('hidden'); });
+        document.addEventListener('visibilitychange', async () => { if (document.hidden && state.isPlaying) await showSongNotification(getCurrentTrack(), 'Playing in background'); });
+        onAuthStateChanged(auth, async (user) => { const savedId = localStorage.getItem(USER_ID_KEY); if (user && savedId) await handleCustomLogin(savedId); else setGuestUI(); });
+    </script>
+
+</body>
+
+</html>
